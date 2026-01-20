@@ -1,8 +1,40 @@
-PyQt6
-playwright
-requests
-pyotp
-svglib
-reportlab
-Pillow
-cairosvg
+# ============================================
+# Auto BitBrowser - Requirements
+# ============================================
+# Python Version: 3.10+ (Recommended: 3.11)
+# OS: Windows 10+, Linux (Debian 12+, Ubuntu 22.04+)
+# ============================================
+# Install: pip install -r requirements.txt
+# ============================================
+
+# Core Dependencies
+requests>=2.28.0
+pyotp>=2.8.0
+deep-translator>=1.11.0
+
+# Browser Automation
+playwright>=1.40.0
+selenium>=4.15.0
+
+# GUI Framework (optional for headless server)
+PyQt6>=6.5.0
+
+# Database (built-in, no install needed)
+# sqlite3 - included in Python
+
+# ============================================
+# Post-install Commands:
+# ============================================
+# After pip install, run:
+#   playwright install chromium
+#   playwright install-deps chromium  # Linux only
+#
+# For headless Linux server:
+#   xvfb-run python auto_batch.py
+# ============================================
+# 
+# Quick Install (copy/paste):
+# ============================================
+# pip install requests pyotp deep-translator playwright selenium PyQt6
+# playwright install chromium
+# ============================================

@@ -1,43 +1,46 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>账号管理后台</title>
+    <title>Account Management Dashboard</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
+
 <body>
     <div class="container">
         <header>
-            <h1>📊 账号管理后台</h1>
+            <h1>Account Management Dashboard</h1>
             <div>
-                <button id="btnExport" class="btn-primary">批量导出选中账号</button>
+                <button id="btnExport" class="btn-primary">Batch Export Selected Accounts</button>
             </div>
         </header>
 
         <div class="card">
             <div class="controls filters">
-                <strong>状态筛选：</strong>
-                <label><input type="checkbox" class="filter-cb" value="link_ready" checked> 有资格待验证已提取链接</label>
-                <label><input type="checkbox" class="filter-cb" value="verified" checked> 已验证未绑卡</label>
-                <label><input type="checkbox" class="filter-cb" value="subscribed" checked> 已绑卡订阅</label>
-                <label><input type="checkbox" class="filter-cb" value="ineligible" checked> 无资格</label>
-                <label><input type="checkbox" class="filter-cb" value="error" checked> 错误/超时</label>
+                <strong>Status Filter:</strong>
+                <label><input type="checkbox" class="filter-cb" value="link_ready" checked> Eligible (Link
+                    Ready)</label>
+                <label><input type="checkbox" class="filter-cb" value="verified" checked> Verified (No Card)</label>
+                <label><input type="checkbox" class="filter-cb" value="subscribed" checked> Subscribed</label>
+                <label><input type="checkbox" class="filter-cb" value="ineligible" checked> Ineligible</label>
+                <label><input type="checkbox" class="filter-cb" value="error" checked> Error/Timeout</label>
                 <span style="flex-grow: 1;"></span>
-                <input type="text" id="searchInput" placeholder="搜索邮箱...">
+                <input type="text" id="searchInput" placeholder="Search email...">
             </div>
-            <div id="countDisplay" style="margin-bottom: 10px; color: #666;">加载中...</div>
-            
+            <div id="countDisplay" style="margin-bottom: 10px; color: #666;">Loading...</div>
+
             <div class="table-wrapper">
                 <table>
                     <thead>
                         <tr>
-                            <th>邮箱</th>
-                            <th>密码</th>
-                            <th>辅助邮箱</th>
-                            <th>2FA 密钥</th>
-                            <th>SheerID 链接</th>
-                            <th>状态</th>
+                            <th>Email</th>
+                            <th>Password</th>
+                            <th>Backup Email</th>
+                            <th>2FA Secret</th>
+                            <th>SheerID Link</th>
+                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody id="accountTableBody">
@@ -47,26 +50,33 @@
         </div>
     </div>
 
-    <!-- 导出模态框 -->
+    <!-- Export Modal -->
     <div id="exportModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">导出账号</div>
+            <div class="modal-header">Export Accounts</div>
             <div class="modal-body">
-                <p>选择要导出的字段（使用 '----' 分隔）：</p>
-                <div class="field-group"><label><input type="checkbox" class="export-field" value="email" checked disabled> 邮箱（始终包含）</label></div>
-                <div class="field-group"><label><input type="checkbox" class="export-field" value="password" checked> 密码</label></div>
-                <div class="field-group"><label><input type="checkbox" class="export-field" value="recovery_email" checked> 辅助邮箱</label></div>
-                <div class="field-group"><label><input type="checkbox" class="export-field" value="secret_key" checked> 2FA 密钥</label></div>
-                <div class="field-group"><label><input type="checkbox" class="export-field" value="verification_link" checked> SheerID 链接</label></div>
-                <div class="field-group"><label><input type="checkbox" class="export-field" value="status"> 状态</label></div>
+                <p>Select fields to export (separated by '----'):</p>
+                <div class="field-group"><label><input type="checkbox" class="export-field" value="email" checked
+                            disabled> Email (always included)</label></div>
+                <div class="field-group"><label><input type="checkbox" class="export-field" value="password" checked>
+                        Password</label></div>
+                <div class="field-group"><label><input type="checkbox" class="export-field" value="recovery_email"
+                            checked> Backup Email</label></div>
+                <div class="field-group"><label><input type="checkbox" class="export-field" value="secret_key" checked>
+                        2FA Secret</label></div>
+                <div class="field-group"><label><input type="checkbox" class="export-field" value="verification_link"
+                            checked> SheerID Link</label></div>
+                <div class="field-group"><label><input type="checkbox" class="export-field" value="status">
+                        Status</label></div>
             </div>
             <div class="modal-footer">
-                <button id="btnCancelExport" class="btn-secondary">取消</button>
-                <button id="btnConfirmExport" class="btn-success">下载 .txt</button>
+                <button id="btnCancelExport" class="btn-secondary">Cancel</button>
+                <button id="btnConfirmExport" class="btn-success">Download .txt</button>
             </div>
         </div>
     </div>
 
     <script src="/static/js/main.js"></script>
 </body>
+
 </html>

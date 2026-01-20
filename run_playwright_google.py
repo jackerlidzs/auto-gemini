@@ -28,7 +28,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
         page = default_context.pages[0] if default_context.pages else await default_context.new_page()
 
         print("Proxy warmup: Waiting for 2 seconds...")
-        if log_callback: log_callback("正在打开浏览器预热...")
+        if log_callback: log_callback("Opening browser warmup...")
         await asyncio.sleep(2)
 
         print('Navigating to accounts.google.com...')
@@ -50,7 +50,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
              email_input = await page.wait_for_selector('input[type="email"]', timeout=5000)
              if email_input:
                  print(f"Entering email: {email}")
-                 if log_callback: log_callback(f"正在输入账号: {email}")
+                 if log_callback: log_callback(f"Entering account: {email}")
                  await email_input.fill(email)
                  await page.click('#identifierNext >> button')
                  
@@ -115,7 +115,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
 
         # 5. Extract "Verify eligibility" link or check for non-eligibility
         print("Checking for eligibility...")
-        if log_callback: log_callback("正在检测学生资格...")
+        if log_callback: log_callback("Checking student eligibility...")
         
         found_link = False
         is_invalid = False
@@ -144,7 +144,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
         subscribed_phrases = [
             "You're already subscribed",
             "Bạn đã đăng ký",
-            "已订阅", 
+            "Already subscribed", 
             "Ya estás suscrito"
         ]
         
@@ -175,7 +175,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
                 
                 if is_subscribed:
                     # Save "Subscribed/Bound" accounts
-                    save_path_subscribed = os.path.join(get_base_path(), "已绑卡号.txt")
+                    save_path_subscribed = os.path.join(get_base_path(), "subscribed.txt")
                     
                     # Reconstruct account line
                     acc_line = account_info.get('email', '')
@@ -188,7 +188,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
                         
                     AccountManager.move_to_subscribed(acc_line)
                     print(f"Saved subscribed account to {save_path_subscribed}")
-                    return True, "已绑卡 (Subscribed)"
+                    return True, "Subscribed (Card Bound)"
 
                 # 1.5 Check for "Verified Unbound" (Get Offer)
                 is_verified_unbound = False
@@ -210,7 +210,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
                         break
                 
                 if is_verified_unbound:
-                    save_path_verified = os.path.join(get_base_path(), "已验证未绑卡.txt")
+                    save_path_verified = os.path.join(get_base_path(), "verified_no_card.txt")
                     acc_line = account_info.get('email', '')
                     if 'password' in account_info: acc_line += f"----{account_info['password']}"
                     if 'backup' in account_info: acc_line += f"----{account_info['backup']}"
@@ -219,7 +219,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
                     
                     AccountManager.move_to_verified(acc_line)
                     print(f"Saved verified unbound account to {save_path_verified}")
-                    return True, "已过验证未绑卡 (Get Offer)"
+                    return True, "Verified (No Card)"
 
                 # 2. Check for "This offer is not available" phrases
                 for phrase in not_available_phrases:
@@ -244,7 +244,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
                             print(f"Translating link text: '{text_content}' -> '{translated_text}'")
                             
                             if "student offer" in translated_text or "get offer" in translated_text:
-                                save_path_verified = os.path.join(get_base_path(), "已验证未绑卡.txt")
+                                save_path_verified = os.path.join(get_base_path(), "verified_no_card.txt")
                                 acc_line = account_info.get('email', '')
                                 if 'password' in account_info: acc_line += f"----{account_info['password']}"
                                 if 'backup' in account_info: acc_line += f"----{account_info['backup']}"
@@ -255,7 +255,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
 
                                 AccountManager.move_to_verified(acc_line)
                                 print(f"Saved verified unbound account (via translation) to {save_path_verified}")
-                                return True, "已过验证未绑卡 (Get Offer Translated)"
+                                return True, "Verified (No Card - Translated)"
                     except Exception as e:
                         print(f"Translation logic error during link check: {e}")
                         
@@ -288,7 +288,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
                 # Handle Late Subscribed Detection
                 if is_subscribed:
                     # Save "Subscribed/Bound" accounts
-                    save_path_subscribed = os.path.join(get_base_path(), "已绑卡号.txt")
+                    save_path_subscribed = os.path.join(get_base_path(), "subscribed.txt")
                     acc_line = account_info.get('email', '')
                     if 'password' in account_info: acc_line += f"----{account_info['password']}"
                     if 'backup' in account_info: acc_line += f"----{account_info['backup']}"
@@ -296,7 +296,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
                         
                     AccountManager.move_to_subscribed(acc_line)
                     print(f"Saved subscribed account to {save_path_subscribed}")
-                    return True, "已绑卡 (Subscribed-Trans)"
+                    return True, "Subscribed (Detected via Translation)"
 
                 if is_invalid:
                     break
@@ -324,7 +324,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
                     # Save to DB (via AccountManager)
                     AccountManager.save_link(line)
                     print("Saved link and account info to DB")
-                    return True, "提取成功 (Link Found)"
+                    return True, "Link Extracted Successfully"
                 else:
                     print("Link element found but has no href.")
                     # fallback to invalid if link has no href? Or just return False.
@@ -341,7 +341,7 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
 
                     AccountManager.move_to_ineligible(full_acc)
                     print(f"Saved to ineligible file")
-                    return False, f"无资格 ({reason})"
+                    return False, f"Ineligible ({reason})"
                 else:
                     reason = "Timeout (10s allowed)"
                     print(f"Account timed out: {reason}")
@@ -353,12 +353,12 @@ async def _automate_login_and_extract(playwright: Playwright, browser_id: str, a
                     AccountManager.move_to_error(full_acc)
                     print(f"Saved to error file")
                     await page.screenshot(path="debug_eligibility_timeout.png")
-                    return False, f"超时 ({reason})" 
+                    return False, f"Timeout ({reason})" 
 
         except Exception as e:
             print(f"Failed to extract check eligibility: {e}")
             await page.screenshot(path="debug_eligibility_error.png")
-            return False, f"错误: {str(e)}"
+            return False, f"Error: {str(e)}"
 
         # Brief wait before closing
         await asyncio.sleep(2)
@@ -398,17 +398,22 @@ def process_browser(browser_id, log_callback=None):
     account_info = {}
     remark = target_browser.get('remark', '')
     parts = remark.split('----')
-    if len(parts) >= 4:
+    
+    # Handle different formats:
+    # 4 parts: email----password----backup----secret
+    # 3 parts: email----password----backup
+    # 2 parts: email----password
+    # 1 part:  email only
+    if len(parts) >= 2:
         account_info = {
             'email': parts[0].strip(),
             'password': parts[1].strip(),
-            'backup': parts[2].strip(),
-            'secret': parts[3].strip()
+            'backup': parts[2].strip() if len(parts) >= 3 else '',
+            'secret': parts[3].strip() if len(parts) >= 4 else ''
         }
+        print(f"Parsed account: email={account_info['email']}, password={'*'*len(account_info['password'])}, has_2fa={'Yes' if account_info['secret'] else 'No'}")
     else:
-        # Even if password/secret missing, maybe we are already logged in?
-        # But if email is missing, it's hard to log (for the file).
-        # We'll try to get email from remark anyway if partial
+        # Only email or empty - might still work if already logged in
         if len(parts) >= 1:
              account_info['email'] = parts[0].strip()
         else:

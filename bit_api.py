@@ -1,46 +1,74 @@
+"""
+BitBrowser Local API Client
+
+Official Documentation: https://doc2.bitbrowser.cn/jiekou/ben-di-fu-wu-zhi-nan.html
+
+This module provides functions to interact with BitBrowser's local API service.
+The fingerprint parameters used here are minimal examples - refer to docs for full options.
+"""
 import requests
 import json
 import time
 
-# 官方文档地址
-# https://doc2.bitbrowser.cn/jiekou/ben-di-fu-wu-zhi-nan.html
-
-# 此demo仅作为参考使用，以下使用的指纹参数仅是部分参数，完整参数请参考文档
-
+# BitBrowser local API endpoint
 url = "http://127.0.0.1:54345"
-headers = {'Content-Type': 'application/json'}
+headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': '91d1df9772a24f7ba67646c327727086'  # BitBrowser API Token
+}
 
 
-def createBrowser():  # 创建或者更新窗口，指纹参数 browserFingerPrint 如没有特定需求，只需要指定下内核即可，如果需要更详细的参数，请参考文档
+def createBrowser():
+    """
+    Create a new browser window/profile.
+    
+    If no specific fingerprint requirements, just specify the core version.
+    For detailed fingerprint parameters, refer to the official documentation.
+    
+    Returns:
+        str: The browser ID of the newly created window
+    """
     json_data = {
-        'name': 'google',  # 窗口名称
-        'remark': '',  # 备注
-        'proxyMethod': 2,  # 代理方式 2自定义 3 提取IP
-        # 代理类型  ['noproxy', 'http', 'https', 'socks5', 'ssh']
+        'name': 'google',  # Window name
+        'remark': '',  # Remark/notes
+        'proxyMethod': 2,  # Proxy method: 2=custom, 3=extract IP
+        # Proxy type options: ['noproxy', 'http', 'https', 'socks5', 'ssh']
         'proxyType': 'noproxy',
-        'host': '',  # 代理主机
-        'port': '',  # 代理端口
-        'proxyUserName': '',  # 代理账号
-        "browserFingerPrint": {  # 指纹对象
-            'coreVersion': '124'  # 内核版本，注意，win7/win8/winserver 2012 已经不支持112及以上内核了，无法打开
+        'host': '',  # Proxy host
+        'port': '',  # Proxy port
+        'proxyUserName': '',  # Proxy username
+        "browserFingerPrint": {  # Fingerprint configuration
+            # Core version. Note: Win7/Win8/WinServer2012 don't support v112+
+            'coreVersion': '124'
         }
     }
 
-    print("正在创建窗口...")
+    print("Creating browser window...")
     res = requests.post(
         f"{url}/browser/update",
         json=json_data,
         headers=headers,
-        timeout=10  # 添加10秒超时
+        timeout=10  # 10 second timeout
     ).json()
     browserId = res['data']['id']
-    print(f"窗口创建成功，ID: {browserId}")
+    print(f"Window created successfully, ID: {browserId}")
     return browserId
 
 
-def updateBrowser():  # 更新窗口，支持批量更新和按需更新，ids 传入数组，单独更新只传一个id即可，只传入需要修改的字段即可，比如修改备注，具体字段请参考文档，browserFingerPrint指纹对象不修改，则无需传入
-    json_data = {'ids': ['93672cf112a044f08b653cab691216f0'],
-                 'remark': '我是一个备注', 'browserFingerPrint': {}}
+def updateBrowser():
+    """
+    Update browser window(s).
+    
+    Supports batch updates and partial updates.
+    Pass IDs as an array - for single update, just pass one ID.
+    Only include fields that need to be modified.
+    If browserFingerPrint doesn't need changes, don't include it.
+    """
+    json_data = {
+        'ids': ['93672cf112a044f08b653cab691216f0'],
+        'remark': 'This is a remark',
+        'browserFingerPrint': {}
+    }
     res = requests.post(
         f"{url}/browser/update/partial",
         json=json_data,
@@ -49,41 +77,62 @@ def updateBrowser():  # 更新窗口，支持批量更新和按需更新，ids �
     print(res)
 
 
-def openBrowser(id):  # 直接指定ID打开窗口，也可以使用 createBrowser 方法返回的ID
+def openBrowser(id):
+    """
+    Open a browser window by ID.
+    
+    Args:
+        id: Browser window ID (can use ID returned from createBrowser)
+    
+    Returns:
+        dict: Response containing WebSocket endpoint and other info
+    """
     json_data = {"id": f'{id}'}
-    print(f"正在打开窗口 {id}...")
+    print(f"Opening window {id}...")
     res = requests.post(
         f"{url}/browser/open",
         json=json_data,
         headers=headers,
-        timeout=30  # 添加30秒超时
+        timeout=30  # 30 second timeout
     ).json()
-    print(f"窗口打开响应: {res}")
+    print(f"Window open response: {res}")
     return res
 
 
-def closeBrowser(id):  # 关闭窗口
+def closeBrowser(id):
+    """
+    Close a browser window by ID.
+    
+    Args:
+        id: Browser window ID to close
+    """
     json_data = {'id': f'{id}'}
-    print(f"正在关闭窗口 {id}...")
+    print(f"Closing window {id}...")
     res = requests.post(
         f"{url}/browser/close",
         json=json_data,
         headers=headers,
-        timeout=10  # 添加10秒超时
+        timeout=10  # 10 second timeout
     ).json()
-    print(f"窗口关闭响应: {res}")
+    print(f"Window close response: {res}")
 
 
-def deleteBrowser(id):  # 删除窗口
+def deleteBrowser(id):
+    """
+    Delete a browser window/profile by ID.
+    
+    Args:
+        id: Browser window ID to delete
+    """
     json_data = {'id': f'{id}'}
-    print(f"正在删除窗口 {id}...")
+    print(f"Deleting window {id}...")
     res = requests.post(
         f"{url}/browser/delete",
         json=json_data,
         headers=headers,
-        timeout=10  # 添加10秒超时
+        timeout=10  # 10 second timeout
     ).json()
-    print(f"窗口删除响应: {res}")
+    print(f"Window delete response: {res}")
 
 
 if __name__ == '__main__':
@@ -91,21 +140,21 @@ if __name__ == '__main__':
         browser_id = createBrowser()
         openBrowser(browser_id)
 
-        print("\n等待10秒后自动关闭窗口...")
-        time.sleep(10)  # 等待10秒自动关闭窗口
+        print("\nWaiting 10 seconds before auto-closing window...")
+        time.sleep(10)  # Wait 10 seconds then auto-close
 
         closeBrowser(browser_id)
 
-        print("\n等待10秒后自动删除窗口...")
-        time.sleep(10)  # 等待10秒自动删掉窗口
+        print("\nWaiting 10 seconds before auto-deleting window...")
+        time.sleep(10)  # Wait 10 seconds then auto-delete
 
         deleteBrowser(browser_id)
-        print("\n程序执行完成！")
+        print("\nProgram execution completed!")
     except requests.exceptions.Timeout:
-        print("\n[错误] 请求超时，请检查比特浏览器服务是否正常运行")
+        print("\n[ERROR] Request timed out. Please check if BitBrowser service is running.")
     except requests.exceptions.ConnectionError:
-        print("\n[错误] 无法连接到比特浏览器API服务，请确保比特浏览器正在运行")
+        print("\n[ERROR] Cannot connect to BitBrowser API. Please ensure BitBrowser is running.")
     except Exception as e:
-        print(f"\n[错误] 发生异常: {e}")
+        print(f"\n[ERROR] Exception occurred: {e}")
         import traceback
         traceback.print_exc()

@@ -1,5 +1,7 @@
 """
-一键全自动处理 GUI - 登录 → 状态检测 → SheerID验证 → 绑卡订阅
+One-Click Full Auto Processing GUI - Login → Status Detection → SheerID Verification → Card Binding
+
+Automated workflow for Google One AI Student subscription process.
 """
 import sys
 import os
@@ -17,8 +19,9 @@ from create_window import get_browser_info, get_browser_list
 from database import DBManager
 from sheerid_verifier import SheerIDVerifier
 
+
 class AutoAllInOneWorker(QThread):
-    """一键全自动工作线程"""
+    """One-click full auto worker thread."""
     progress_signal = pyqtSignal(str, str, str)  # browser_id, status, message
     finished_signal = pyqtSignal()
     log_signal = pyqtSignal(str)
@@ -37,18 +40,18 @@ class AutoAllInOneWorker(QThread):
         try:
             asyncio.run(self._process_all())
         except Exception as e:
-            self.log_signal.emit(f"❌ 工作线程错误: {e}")
+            self.log_signal.emit(f"[X] Worker thread error: {e}")
             import traceback
             traceback.print_exc()
         finally:
             self.finished_signal.emit()
     
     async def _process_all(self):
-        """处理所有账号（支持并发）"""
+        """Process all accounts (with concurrency support)."""
         card_index = 0
         card_usage_count = 0
         
-        # 将账号分批处理
+        # Process accounts in batches
         for batch_start in range(0, len(self.accounts), self.thread_count):
             if not self.is_running:
                 break
@@ -57,28 +60,28 @@ class AutoAllInOneWorker(QThread):
             batch_accounts = self.accounts[batch_start:batch_end]
             
             self.log_signal.emit(f"\n{'='*50}")
-            self.log_signal.emit(f"并发处理第 {batch_start+1}-{batch_end} 个账号（共 {len(self.accounts)} 个）")
+            self.log_signal.emit(f"Processing accounts {batch_start+1}-{batch_end} (total {len(self.accounts)})")
             self.log_signal.emit(f"{'='*50}")
             
-            # 为每个账号分配卡片和创建任务
+            # Assign cards and create tasks for each account
             tasks = []
             for i, account in enumerate(batch_accounts):
                 global_index = batch_start + i
                 
-                # 检查是否需要切换到下一张卡
+                # Check if need to switch to next card
                 if card_usage_count >= self.cards_per_account:
                     card_index += 1
                     card_usage_count = 0
-                    self.log_signal.emit(f"💳 切换到下一张卡 (卡 #{card_index + 1})")
+                    self.log_signal.emit(f"[Card] Switching to next card (Card #{card_index + 1})")
                 
-                # 检查卡是否用完
+                # Check if cards are exhausted
                 if card_index >= len(self.cards):
-                    self.log_signal.emit("⚠️ 卡片已用完，停止处理")
+                    self.log_signal.emit("[!] Cards exhausted, stopping processing")
                     break
                 
                 current_card = self.cards[card_index] if card_index < len(self.cards) else None
                 
-                # 创建异步任务
+                # Create async task
                 task = self._process_single_account_wrapper(
                     account, 
                     current_card, 
@@ -89,19 +92,19 @@ class AutoAllInOneWorker(QThread):
                 if current_card:
                     card_usage_count += 1
             
-            # 并发执行这一批
+            # Execute this batch concurrently
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
     
     async def _process_single_account_wrapper(self, account, card_info, index):
-        """单个账号处理的包装器"""
+        """Wrapper for single account processing."""
         if not self.is_running:
             return
         
         browser_id = account.get('browser_id')
         email = account.get('email')
         
-        self.log_signal.emit(f"\n[{index}] 开始处理账号: {email}")
+        self.log_signal.emit(f"\n[{index}] Starting account: {email}")
         
         try:
             success, message = await self._process_single_account(
@@ -109,29 +112,29 @@ class AutoAllInOneWorker(QThread):
             )
             
             if success:
-                self.progress_signal.emit(browser_id, "✅ 完成", message)
-                self.log_signal.emit(f"[{index}] ✅ {email}: {message}")
+                self.progress_signal.emit(browser_id, "[OK] Complete", message)
+                self.log_signal.emit(f"[{index}] [OK] {email}: {message}")
             else:
-                self.progress_signal.emit(browser_id, "❌ 失败", message)
-                self.log_signal.emit(f"[{index}] ❌ {email}: {message}")
+                self.progress_signal.emit(browser_id, "[X] Failed", message)
+                self.log_signal.emit(f"[{index}] [X] {email}: {message}")
                 
         except Exception as e:
-            error_msg = f"处理出错: {e}"
-            self.progress_signal.emit(browser_id, "❌ 错误", error_msg)
-            self.log_signal.emit(f"[{index}] ❌ {email}: {error_msg}")
+            error_msg = f"Processing error: {e}"
+            self.progress_signal.emit(browser_id, "[X] Error", error_msg)
+            self.log_signal.emit(f"[{index}] [X] {email}: {error_msg}")
     
     async def _process_single_account(self, browser_id, email, card_info):
         """
-        处理单个账号的完整流程
-        1. 登录
-        2. 检测状态
-        3. 根据状态执行相应操作
+        Process single account complete flow:
+        1. Login
+        2. Detect status
+        3. Execute corresponding action based on status
         """
         try:
-            # 获取账号信息
+            # Get account info
             target_browser = get_browser_info(browser_id)
             if not target_browser:
-                return False, "无法获取浏览器信息"
+                return False, "Cannot get browser info"
             
             remark = target_browser.get('remark', '')
             parts = remark.split('----')
@@ -145,10 +148,10 @@ class AutoAllInOneWorker(QThread):
                     'secret': parts[3].strip()
                 }
             
-            # 打开浏览器（全程不关闭）
+            # Open browser (keep open throughout)
             result = openBrowser(browser_id)
             if not result.get('success'):
-                return False, f"打开浏览器失败"
+                return False, f"Failed to open browser"
             
             ws_endpoint = result['data']['ws']
             
@@ -159,52 +162,56 @@ class AutoAllInOneWorker(QThread):
                     context = browser.contexts[0]
                     page = context.pages[0] if context.pages else await context.new_page()
                     
-                    # 从 auto_bind_card 导入
+                    # Import from auto_bind_card
                     from auto_bind_card import check_and_login, auto_bind_card
                     
-                    # Step 1: 导航到目标页面并登录检测
-                    self.log_signal.emit(f"  🔐 步骤1: 导航并登录检测...")
+                    # Step 1: Navigate to target page and detect login
+                    self.log_signal.emit(f"  [Key] Step 1: Navigate and login detection...")
                     target_url = "https://one.google.com/ai-student?g1_landing_page=75&utm_source=antigravity&utm_campaign=argon_limit_reached"
                     
-                    # 先导航到目标页面
+                    # Navigate to target page first
                     await page.goto(target_url, wait_until='domcontentloaded', timeout=30000)
                     await asyncio.sleep(3)
                     
-                    # 然后检测登录
+                    # Then detect login
                     login_success, login_msg = await check_and_login(page, account_info)
                     if not login_success:
-                        return False, f"登录失败: {login_msg}"
+                        return False, f"Login failed: {login_msg}"
                     
-                    self.log_signal.emit(f"  ✅ 登录成功")
+                    self.log_signal.emit(f"  [OK] Login successful")
                     
-                    # Step 2: 状态检测
-                    self.log_signal.emit(f"  🔍 步骤2: 状态检测...")
+                    # Step 2: Status detection
+                    self.log_signal.emit(f"  [Search] Step 2: Status detection...")
                     await asyncio.sleep(3)
                     
-                    # 检测状态（使用内联逻辑）
+                    # Detect status (using inline logic)
                     status = await self._detect_status(page)
-                    self.log_signal.emit(f"  📊 当前状态: {status}")
+                    self.log_signal.emit(f"  [Chart] Current status: {status}")
                     
-                    # Step 3: 根据状态执行操作
+                    # Step 3: Execute action based on status
                     if status == "link_ready":
-                        # 有资格待验证 → 提取链接 → 验证 → 绑卡
+                        # Eligible pending verification → Extract link → Verify → Bind card
                         return await self._handle_link_ready(page, email, card_info)
                         
                     elif status == "verified":
-                        # 已验证未绑卡 → 直接绑卡
+                        # Verified unbound → Bind card directly
                         return await self._handle_verified(page, card_info, account_info)
                         
                     elif status == "subscribed":
-                        # 已订阅
-                        return True, "账号已订阅，无需处理"
+                        # Already subscribed
+                        return True, "Account already subscribed, no action needed"
                         
                     elif status == "ineligible":
-                        # 无资格
-                        return False, "账号无资格"
+                        # Ineligible
+                        return False, "Account ineligible"
+                    
+                    elif status == "error" or status == "timeout":
+                        # Error or timeout during status detection
+                        return False, f"Status detection failed: {status}"
                         
                     else:
-                        # 其他状态
-                        return False, f"未知状态: {status}"
+                        # Other status
+                        return False, f"Unknown status: {status}"
                     
                 except Exception as e:
                     import traceback
@@ -216,21 +223,21 @@ class AutoAllInOneWorker(QThread):
     
     async def _detect_status(self, page):
         """
-        检测账号当前状态
-        返回: link_ready, verified, subscribed, ineligible, error
+        Detect account current status.
+        Returns: link_ready, verified, subscribed, ineligible, error
         """
         try:
             page_content = await page.content()
             page_text = await page.evaluate("() => document.body.innerText")
             
-            # 检测关键词
-            if "Subscribed" in page_content or "已订阅" in page_text:
+            # Detect keywords
+            if "Subscribed" in page_content or "Already subscribed" in page_text:
                 return "subscribed"
-            elif "Get student offer" in page_content or "获取学生优惠" in page_text:
+            elif "Get student offer" in page_content or "Get offer" in page_text:
                 return "verified"
-            elif "verify your eligibility" in page_content or "验证您的资格" in page_text:
+            elif "verify your eligibility" in page_content or "Verify eligibility" in page_text:
                 return "link_ready"
-            elif "not available" in page_text or "不可用" in page_text:
+            elif "not available" in page_text or "unavailable" in page_text:
                 return "ineligible"
             else:
                 return "error"
@@ -238,28 +245,28 @@ class AutoAllInOneWorker(QThread):
             return "error"
     
     async def _handle_link_ready(self, page, email, card_info):
-        """处理有资格待验证的账号"""
+        """Handle eligible pending verification accounts."""
         try:
-            self.log_signal.emit(f"  🔗 步骤3a: 提取SheerID链接...")
+            self.log_signal.emit(f"  [Link] Step 3a: Extracting SheerID link...")
             
-            # 提取链接（内联实现）
+            # Extract link (inline implementation)
             try:
-                # 点击 "verify your eligibility" 按钮
+                # Click "verify your eligibility" button
                 await page.wait_for_selector('text=verify your eligibility', timeout=10000)
                 await page.click('text=verify your eligibility')
                 await asyncio.sleep(3)
                 
-                # 等待新页面或iframe加载
+                # Wait for new page or iframe to load
                 await asyncio.sleep(2)
                 
-                # 获取当前URL或iframe中的链接
+                # Get current URL or link from iframe
                 link = None
                 current_url = page.url
                 
                 if "sheerid" in current_url.lower():
                     link = current_url
                 else:
-                    # 尝试从iframe获取
+                    # Try to get from iframe
                     frames = page.frames
                     for frame in frames:
                         frame_url = frame.url
@@ -268,7 +275,7 @@ class AutoAllInOneWorker(QThread):
                             break
                 
                 if not link:
-                    # 尝试从页面内容中提取
+                    # Try to extract from page content
                     page_content = await page.content()
                     import re
                     sheerid_match = re.search(r'https://[^"\']*sheerid[^"\']*', page_content)
@@ -276,21 +283,21 @@ class AutoAllInOneWorker(QThread):
                         link = sheerid_match.group()
             
             except Exception as e:
-                self.log_signal.emit(f"  ⚠️ 提取链接时出错: {e}")
+                self.log_signal.emit(f"  [!] Error extracting link: {e}")
                 link = None
             
             if not link:
-                return False, "无法提取SheerID链接"
+                return False, "Cannot extract SheerID link"
             
-            self.log_signal.emit(f"  ✅ 链接提取成功: {link[:50]}...")
+            self.log_signal.emit(f"  [OK] Link extracted: {link[:50]}...")
             
-            # 保存链接到数据库
+            # Save link to database
             from account_manager import AccountManager
             line = f"{link}----{email}"
             AccountManager.save_link(line)
             
-            # Step 3b: 验证SheerID
-            self.log_signal.emit(f"  ✔️ 步骤3b: SheerID验证...")
+            # Step 3b: Verify SheerID
+            self.log_signal.emit(f"  [Check] Step 3b: SheerID verification...")
             
             verifier = SheerIDVerifier(api_key=self.api_key)
             success, vid, msg = await asyncio.to_thread(
@@ -299,32 +306,32 @@ class AutoAllInOneWorker(QThread):
             )
             
             if not success:
-                return False, f"SheerID验证失败: {msg}"
+                return False, f"SheerID verification failed: {msg}"
             
-            self.log_signal.emit(f"  ✅ SheerID验证成功")
+            self.log_signal.emit(f"  [OK] SheerID verification successful")
             
-            # 更新状态为已验证
+            # Update status to verified
             AccountManager.move_to_verified(line)
             
-            # 刷新页面
+            # Refresh page
             await page.reload(wait_until='domcontentloaded')
             await asyncio.sleep(5)
             
-            # Step 3c: 绑卡订阅
+            # Step 3c: Bind card and subscribe
             return await self._handle_verified(page, card_info, None)
             
         except Exception as e:
-            return False, f"处理link_ready状态出错: {e}"
+            return False, f"Error handling link_ready status: {e}"
     
     async def _handle_verified(self, page, card_info, account_info):
-        """处理已验证未绑卡的账号"""
+        """Handle verified unbound accounts."""
         try:
-            self.log_signal.emit(f"  💳 步骤4: 绑卡订阅...")
+            self.log_signal.emit(f"  [Card] Step 4: Bind card and subscribe...")
             
             if not card_info:
-                return False, "没有可用的卡片"
+                return False, "No card available"
             
-            # 使用现有的绑卡函数
+            # Use existing bind card function
             from auto_bind_card import auto_bind_card
             
             success, message = await auto_bind_card(
@@ -334,21 +341,21 @@ class AutoAllInOneWorker(QThread):
             )
             
             if success:
-                self.log_signal.emit(f"  ✅ 绑卡订阅成功")
-                return True, "全流程完成：已绑卡订阅"
+                self.log_signal.emit(f"  [OK] Card binding and subscription successful")
+                return True, "Full flow complete: Card bound and subscribed"
             else:
-                return False, f"绑卡失败: {message}"
+                return False, f"Card binding failed: {message}"
                 
         except Exception as e:
-            return False, f"绑卡过程出错: {e}"
+            return False, f"Error during card binding: {e}"
     
     def stop(self):
-        """停止工作线程"""
+        """Stop worker thread."""
         self.is_running = False
 
 
 class AutoAllInOneWindow(QWidget):
-    """一键全自动处理窗口"""
+    """One-click full auto processing window."""
     
     def __init__(self):
         super().__init__()
@@ -358,82 +365,82 @@ class AutoAllInOneWindow(QWidget):
         self.load_cards()
     
     def initUI(self):
-        self.setWindowTitle("一键全自动处理")
+        self.setWindowTitle("One-Click Full Auto Processing")
         self.setGeometry(100, 100, 1000, 750)
         
         layout = QVBoxLayout()
         
-        # 顶部设置区域
-        settings_group = QGroupBox("设置")
+        # Top settings area
+        settings_group = QGroupBox("Settings")
         settings_layout = QFormLayout()
         
         # SheerID API Key
         self.api_key_input = QLineEdit()
-        self.api_key_input.setPlaceholderText("请输入SheerID API Key")
+        self.api_key_input.setPlaceholderText("Enter SheerID API Key")
         settings_layout.addRow("API Key:", self.api_key_input)
         
-        # 一卡几绑
+        # Cards per account
         self.cards_per_account_spin = QSpinBox()
         self.cards_per_account_spin.setMinimum(1)
         self.cards_per_account_spin.setMaximum(100)
         self.cards_per_account_spin.setValue(1)
-        settings_layout.addRow("一卡几绑:", self.cards_per_account_spin)
+        settings_layout.addRow("Cards per account:", self.cards_per_account_spin)
         
-        # 并发数
+        # Concurrency
         self.thread_count_spin = QSpinBox()
         self.thread_count_spin.setMinimum(1)
         self.thread_count_spin.setMaximum(20)
         self.thread_count_spin.setValue(3)
-        settings_layout.addRow("并发数:", self.thread_count_spin)
+        settings_layout.addRow("Concurrency:", self.thread_count_spin)
         
-        #延迟设置
+        # Delay settings
         delay_layout = QHBoxLayout()
         
         self.delay_after_offer = QSpinBox()
         self.delay_after_offer.setMinimum(1)
         self.delay_after_offer.setMaximum(60)
         self.delay_after_offer.setValue(8)
-        delay_layout.addWidget(QLabel("Offer后:"))
+        delay_layout.addWidget(QLabel("After Offer:"))
         delay_layout.addWidget(self.delay_after_offer)
-        delay_layout.addWidget(QLabel("秒"))
+        delay_layout.addWidget(QLabel("sec"))
         
         self.delay_after_add_card = QSpinBox()
         self.delay_after_add_card.setMinimum(1)
         self.delay_after_add_card.setMaximum(60)
         self.delay_after_add_card.setValue(10)
-        delay_layout.addWidget(QLabel("AddCard后:"))
+        delay_layout.addWidget(QLabel("After AddCard:"))
         delay_layout.addWidget(self.delay_after_add_card)
-        delay_layout.addWidget(QLabel("秒"))
+        delay_layout.addWidget(QLabel("sec"))
         
         self.delay_after_save = QSpinBox()
         self.delay_after_save.setMinimum(1)
         self.delay_after_save.setMaximum(60)
         self.delay_after_save.setValue(18)
-        delay_layout.addWidget(QLabel("Save后:"))
+        delay_layout.addWidget(QLabel("After Save:"))
         delay_layout.addWidget(self.delay_after_save)
-        delay_layout.addWidget(QLabel("秒"))
+        delay_layout.addWidget(QLabel("sec"))
         
-        settings_layout.addRow("延迟:", delay_layout)
+        settings_layout.addRow("Delays:", delay_layout)
         
         settings_group.setLayout(settings_layout)
         layout.addWidget(settings_group)
         
-        # 卡片和账号信息
+        # Card and account info
         info_layout = QHBoxLayout()
-        self.card_count_label = QLabel("卡片: 0")
+        self.card_count_label = QLabel("Cards: 0")
         info_layout.addWidget(self.card_count_label)
-        self.account_count_label = QLabel("账号: 0")
+        self.account_count_label = QLabel("Accounts: 0")
         info_layout.addWidget(self.account_count_label)
         info_layout.addStretch()
         layout.addLayout(info_layout)
         
-        # 账号列表
-        accounts_label = QLabel("待处理账号列表:")
+        # Account list
+        accounts_label = QLabel("Pending Accounts List:")
         layout.addWidget(accounts_label)
         
-        # 全选复选框
+        # Select all checkbox
         select_layout = QHBoxLayout()
-        self.select_all_checkbox = QCheckBox("全选/取消全选")
+        self.select_all_checkbox = QCheckBox("Select All / Deselect All")
         self.select_all_checkbox.stateChanged.connect(self.toggle_select_all)
         select_layout.addWidget(self.select_all_checkbox)
         select_layout.addStretch()
@@ -441,7 +448,7 @@ class AutoAllInOneWindow(QWidget):
         
         self.table = QTableWidget()
         self.table.setColumnCount(5)
-        self.table.setHorizontalHeaderLabels(["选择", "邮箱", "浏览器ID", "状态", "消息"])
+        self.table.setHorizontalHeaderLabels(["Select", "Email", "Browser ID", "Status", "Message"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
@@ -449,8 +456,8 @@ class AutoAllInOneWindow(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
         
-        # 日志区域
-        log_label = QLabel("运行日志:")
+        # Log area
+        log_label = QLabel("Run Log:")
         layout.addWidget(log_label)
         
         self.log_text = QTextEdit()
@@ -458,18 +465,18 @@ class AutoAllInOneWindow(QWidget):
         self.log_text.setMaximumHeight(150)
         layout.addWidget(self.log_text)
         
-        # 按钮区域
+        # Button area
         button_layout = QHBoxLayout()
         
-        self.btn_refresh = QPushButton("刷新列表")
+        self.btn_refresh = QPushButton("Refresh List")
         self.btn_refresh.clicked.connect(self.refresh_all)
         button_layout.addWidget(self.btn_refresh)
         
-        self.btn_start = QPushButton("开始全自动处理")
+        self.btn_start = QPushButton("Start Full Auto Processing")
         self.btn_start.clicked.connect(self.start_processing)
         button_layout.addWidget(self.btn_start)
         
-        self.btn_stop = QPushButton("停止")
+        self.btn_stop = QPushButton("Stop")
         self.btn_stop.setEnabled(False)
         self.btn_stop.clicked.connect(self.stop_processing)
         button_layout.addWidget(self.btn_stop)
@@ -479,14 +486,14 @@ class AutoAllInOneWindow(QWidget):
         self.setLayout(layout)
     
     def load_cards(self):
-        """加载 cards.txt"""
+        """Load cards.txt file."""
         base_path = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
         cards_path = os.path.join(base_path, "cards.txt")
         
         self.cards = []
         
         if not os.path.exists(cards_path):
-            self.card_count_label.setText("卡片: 0")
+            self.card_count_label.setText("Cards: 0")
             return
         
         try:
@@ -494,7 +501,7 @@ class AutoAllInOneWindow(QWidget):
                 lines = [l.strip() for l in f.readlines() if l.strip() and not l.startswith('#')]
             
             for line in lines:
-                if line.startswith('分隔符='):
+                if line.startswith('separator='):
                     continue
                 parts = line.split()
                 if len(parts) >= 4:
@@ -506,20 +513,20 @@ class AutoAllInOneWindow(QWidget):
                     }
                     self.cards.append(card)
             
-            self.card_count_label.setText(f"卡片: {len(self.cards)}")
-            self.log(f"✅ 加载了 {len(self.cards)} 张卡片")
+            self.card_count_label.setText(f"Cards: {len(self.cards)}")
+            self.log(f"[OK] Loaded {len(self.cards)} cards")
             
         except Exception as e:
-            self.log(f"❌ 加载卡片失败: {e}")
+            self.log(f"[X] Failed to load cards: {e}")
     
     def load_accounts(self):
-        """加载所有待处理账号"""
+        """Load all pending accounts."""
         try:
             DBManager.init_db()
             conn = DBManager.get_connection()
             cursor = conn.cursor()
             
-            # 查询所有非已订阅和无资格的账号
+            # Query all accounts not subscribed or ineligible
             cursor.execute("""
                 SELECT email, password, recovery_email, secret_key, verification_link 
                 FROM accounts 
@@ -536,7 +543,7 @@ class AutoAllInOneWindow(QWidget):
             rows = cursor.fetchall()
             conn.close()
             
-            # 获取浏览器列表
+            # Get browser list
             browsers = get_browser_list(page=0, pageSize=1000)
             email_to_browser = {}
             for browser in browsers:
@@ -568,11 +575,11 @@ class AutoAllInOneWindow(QWidget):
                 }
                 self.accounts.append(account)
                 
-                # 添加到表格
+                # Add to table
                 row_idx = self.table.rowCount()
                 self.table.insertRow(row_idx)
                 
-                # 复选框
+                # Checkbox
                 checkbox = QCheckBox()
                 checkbox.setChecked(True)
                 checkbox_widget = QWidget()
@@ -584,24 +591,24 @@ class AutoAllInOneWindow(QWidget):
                 
                 self.table.setItem(row_idx, 1, QTableWidgetItem(account['email']))
                 self.table.setItem(row_idx, 2, QTableWidgetItem(account['browser_id']))
-                self.table.setItem(row_idx, 3, QTableWidgetItem("待处理"))
+                self.table.setItem(row_idx, 3, QTableWidgetItem("Pending"))
                 self.table.setItem(row_idx, 4, QTableWidgetItem(""))
             
-            self.account_count_label.setText(f"账号: {len(self.accounts)}")
-            self.log(f"✅ 加载了 {len(self.accounts)} 个待处理账号")
+            self.account_count_label.setText(f"Accounts: {len(self.accounts)}")
+            self.log(f"[OK] Loaded {len(self.accounts)} pending accounts")
             
         except Exception as e:
-            self.log(f"❌ 加载账号失败: {e}")
+            self.log(f"[X] Failed to load accounts: {e}")
             import traceback
             traceback.print_exc()
     
     def refresh_all(self):
-        """刷新"""
+        """Refresh all data."""
         self.load_accounts()
         self.load_cards()
     
     def toggle_select_all(self, state):
-        """全选/取消全选"""
+        """Select all / Deselect all."""
         is_checked = (state == Qt.CheckState.Checked.value)
         for row in range(self.table.rowCount()):
             checkbox_widget = self.table.cellWidget(row, 0)
@@ -611,7 +618,7 @@ class AutoAllInOneWindow(QWidget):
                     checkbox.setChecked(is_checked)
     
     def get_selected_accounts(self):
-        """获取选中的账号"""
+        """Get selected accounts."""
         selected = []
         for row in range(self.table.rowCount()):
             checkbox_widget = self.table.cellWidget(row, 0)
@@ -623,19 +630,19 @@ class AutoAllInOneWindow(QWidget):
         return selected
     
     def start_processing(self):
-        """开始处理"""
+        """Start processing."""
         selected_accounts = self.get_selected_accounts()
         
         if not selected_accounts:
-            QMessageBox.warning(self, "提示", "请先勾选要处理的账号")
+            QMessageBox.warning(self, "Notice", "Please select accounts to process first")
             return
         
         api_key = self.api_key_input.text().strip()
         if not api_key:
-            QMessageBox.warning(self, "提示", "请输入SheerID API Key")
+            QMessageBox.warning(self, "Notice", "Please enter SheerID API Key")
             return
         
-        # 收集设置
+        # Collect settings
         delays = {
             'after_offer': self.delay_after_offer.value(),
             'after_add_card': self.delay_after_add_card.value(),
@@ -646,14 +653,14 @@ class AutoAllInOneWindow(QWidget):
         thread_count = self.thread_count_spin.value()
         
         self.log(f"\n{'='*50}")
-        self.log(f"开始全自动处理")
-        self.log(f"选中账号: {len(selected_accounts)}")
-        self.log(f"卡片数量: {len(self.cards)}")
-        self.log(f"一卡几绑: {cards_per_account}")
-        self.log(f"并发数: {thread_count}")
+        self.log(f"Starting full auto processing")
+        self.log(f"Selected accounts: {len(selected_accounts)}")
+        self.log(f"Number of cards: {len(self.cards)}")
+        self.log(f"Cards per account: {cards_per_account}")
+        self.log(f"Concurrency: {thread_count}")
         self.log(f"{'='*50}\n")
         
-        # 创建并启动工作线程
+        # Create and start worker thread
         self.worker = AutoAllInOneWorker(
             selected_accounts,
             self.cards,
@@ -672,21 +679,21 @@ class AutoAllInOneWindow(QWidget):
         self.btn_refresh.setEnabled(False)
     
     def stop_processing(self):
-        """停止处理"""
+        """Stop processing."""
         if self.worker:
             self.worker.stop()
-            self.log("⚠️ 正在停止...")
+            self.log("[!] Stopping...")
     
     def on_finished(self):
-        """处理完成"""
+        """Processing complete."""
         self.btn_start.setEnabled(True)
         self.btn_stop.setEnabled(False)
         self.btn_refresh.setEnabled(True)
-        self.log("\n✅ 全自动处理任务完成！")
-        QMessageBox.information(self, "完成", "全自动处理任务已完成")
+        self.log("\n[OK] Full auto processing task complete!")
+        QMessageBox.information(self, "Complete", "Full auto processing task completed")
     
     def update_account_status(self, browser_id, status, message):
-        """更新表格状态"""
+        """Update table status."""
         for row in range(self.table.rowCount()):
             if self.table.item(row, 2) and self.table.item(row, 2).text() == browser_id:
                 self.table.setItem(row, 3, QTableWidgetItem(status))
@@ -694,7 +701,7 @@ class AutoAllInOneWindow(QWidget):
                 break
     
     def log(self, message):
-        """添加日志"""
+        """Add log message."""
         self.log_text.append(message)
         scrollbar = self.log_text.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())

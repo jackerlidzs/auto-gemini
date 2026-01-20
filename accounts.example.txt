@@ -1,0 +1,10 @@
+# Separator Configuration
+separator="----"
+
+# Format: Email----Password----BackupEmail----2FASecret
+# Example:
+# yourname@gmail.com----YourPassword123----backup@email.com----YOUR2FASECRETKEY
+
+# Add your Google account(s) below:
+# account1@gmail.com----password1----backup1@email.com----2FAKEY1
+# account2@gmail.com----password2----backup2@email.com----2FAKEY2

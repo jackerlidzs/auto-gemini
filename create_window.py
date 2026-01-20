@@ -1,6 +1,8 @@
 """
-创建比特浏览器新窗口
-根据示例窗口的参数创建新窗口，从accounts.txt读取账户信息
+BitBrowser Window Creation Module
+
+Creates new browser windows/profiles based on reference template.
+Reads account information from accounts.txt file.
 """
 import requests
 import json
@@ -11,21 +13,29 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 
-# 比特浏览器API地址
+# BitBrowser API endpoint
 url = "http://127.0.0.1:54345"
-headers = {'Content-Type': 'application/json'}
+headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': '91d1df9772a24f7ba67646c327727086'  # BitBrowser API Token
+}
 
 
 def read_proxies(file_path: str) -> list:
     """
-    读取代理信息文件
+    Read proxy configuration file.
     
     Args:
-        file_path: 代理文件路径
+        file_path: Path to proxy file
         
     Returns:
-        代理列表，每个代理为字典格式 {'type': 'socks5', 'host': '', 'port': '', 'username': '', 'password': ''}
-        如果没有代理则返回空列表
+        List of proxy dicts: {'type': 'http/socks5', 'host': '', 'port': '', 'username': '', 'password': ''}
+        Returns empty list if no proxies found
+        
+    Supported formats:
+        socks5://user:pass@host:port
+        http://user:pass@host:port
+        https://user:pass@host:port
     """
     proxies = []
     
@@ -38,29 +48,36 @@ def read_proxies(file_path: str) -> list:
                 line = line.strip()
                 if not line or line.startswith('#'):
                     continue
-                match = re.match(r'^socks5://([^:]+):([^@]+)@([^:]+):(\d+)$', line)
+                
+                # Match socks5, http, or https protocols
+                match = re.match(r'^(socks5|http|https)://([^:]+):([^@]+)@([^:]+):(\d+)$', line)
                 if match:
+                    proxy_type = match.group(1)
+                    # BitBrowser uses 'http' for both http and https proxies
+                    if proxy_type == 'https':
+                        proxy_type = 'http'
                     proxies.append({
-                        'type': 'socks5',
-                        'host': match.group(3),
-                        'port': match.group(4),
-                        'username': match.group(1),
-                        'password': match.group(2)
+                        'type': proxy_type,
+                        'host': match.group(4),
+                        'port': match.group(5),
+                        'username': match.group(2),
+                        'password': match.group(3)
                     })
-    except Exception:
-        pass
+                    print(f"  Loaded proxy: {proxy_type}://{match.group(4)}:{match.group(5)}")
+    except Exception as e:
+        print(f"Error reading proxies: {e}")
     
     return proxies
 
 
 def read_separator_config(file_path: str) -> str:
     """
-    从文件顶部读取分隔符配置
+    Read separator configuration from file header.
     
-    格式: 分隔符="----"
+    Format: separator="----"
     
     Returns:
-        分隔符字符串，默认为 "----"
+        Separator string, defaults to "----"
     """
     default_sep = "----"
     
@@ -73,14 +90,13 @@ def read_separator_config(file_path: str) -> str:
                 line = line.strip()
                 if not line:
                     continue
-                # 查找分隔符配置行
-                if line.startswith('分隔符=') or line.startswith('separator='):
-                    # 提取引号内的内容
-                    import re
+                # Look for separator config line
+                if line.startswith('separator='):
+                    # Extract content within quotes
                     match = re.search(r'["\'](.+?)["\']', line)
                     if match:
                         return match.group(1)
-                # 如果遇到非注释、非配置行，停止搜索
+                # Stop searching if we hit non-comment, non-config line
                 if not line.startswith('#') and '=' not in line:
                     break
     except Exception:
@@ -91,24 +107,22 @@ def read_separator_config(file_path: str) -> str:
 
 def parse_account_line(line: str, separator: str) -> dict:
     """
-    根据指定分隔符解析账号信息行
+    Parse account info line using specified separator.
     
     Args:
-        line: 账号信息行
-        separator: 分隔符
+        line: Account info line
+        separator: Field separator
         
     Returns:
-        解析后的账号字典
+        Parsed account dictionary
     """
-    # 移除注释
-    if '#' in line:
-        comment_pos = line.find('#')
-        line = line[:comment_pos].strip()
+    # NOTE: We do NOT strip inline comments here because # can appear in passwords
+    # Lines that are pure comments (start with #) are already skipped in read_accounts()
     
     if not line:
         return None
     
-    # 使用指定分隔符分割
+    # Split using specified separator
     parts = line.split(separator)
     parts = [p.strip() for p in parts if p.strip()]
     
@@ -123,8 +137,8 @@ def parse_account_line(line: str, separator: str) -> dict:
         'full_line': line
     }
     
-    # 按固定顺序分配字段
-    # 格式: 邮箱 [分隔符] 密码 [分隔符] 辅助邮箱 [分隔符] 2FA密钥
+    # Assign fields in fixed order
+    # Format: email [sep] password [sep] backup_email [sep] 2fa_secret
     if len(parts) >= 1:
         result['email'] = parts[0]
     if len(parts) >= 2:
@@ -139,62 +153,62 @@ def parse_account_line(line: str, separator: str) -> dict:
 
 def read_accounts(file_path: str) -> list:
     """
-    读取账户信息文件（使用配置的分隔符）
+    Read account info file (using configured separator).
     
-    文件格式：
-    第一行（可选）：分隔符="----"
-    后续行：邮箱[分隔符]密码[分隔符]辅助邮箱[分隔符]2FA密钥
+    File format:
+    First line (optional): separator="----"
+    Following lines: email[sep]password[sep]backup_email[sep]2fa_secret
     
     Args:
-        file_path: 账户文件路径
+        file_path: Path to accounts file
         
     Returns:
-        账户列表，每个账户为字典格式
+        List of account dictionaries
     """
     accounts = []
     
     if not os.path.exists(file_path):
-        print(f"错误: 找不到文件 {file_path}")
+        print(f"Error: File not found {file_path}")
         return accounts
     
-    # 读取分隔符配置
+    # Read separator config
     separator = read_separator_config(file_path)
-    print(f"使用分隔符: '{separator}'")
+    print(f"Using separator: '{separator}'")
     
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
                 
-                # 跳过空行和注释
+                # Skip empty lines and comments
                 if not line or line.startswith('#'):
                     continue
                 
-                # 跳过配置行
-                if line.startswith('分隔符=') or line.startswith('separator='):
+                # Skip config lines
+                if line.startswith('separator='):
                     continue
                 
                 account = parse_account_line(line, separator)
                 if account:
                     accounts.append(account)
                 else:
-                    print(f"警告: 第{line_num}行格式不正确: {line[:50]}")
+                    print(f"Warning: Line {line_num} format invalid: {line[:50]}")
     except Exception as e:
-        print(f"读取文件出错: {e}")
+        print(f"Error reading file: {e}")
     
     return accounts
 
 
 def get_browser_list(page: int = 0, pageSize: int = 50):
     """
-    获取所有窗口列表（使用POST请求，JSON body传参）
+    Get all browser windows list (using POST request with JSON body).
     
     Args:
-        page: 页码，默认为1
-        pageSize: 每页数量，默认为50
+        page: Page number, defaults to 0
+        pageSize: Items per page, defaults to 50
     
     Returns:
-        窗口列表
+        List of browser windows
     """
     try:
         json_data = {
@@ -224,13 +238,13 @@ def get_browser_list(page: int = 0, pageSize: int = 50):
 
 def get_browser_info(browser_id: str):
     """
-    获取指定窗口的详细信息
+    Get detailed info for a specific browser window.
     
     Args:
-        browser_id: 窗口ID
+        browser_id: Browser window ID
         
     Returns:
-        窗口信息字典
+        Browser info dictionary
     """
     browsers = get_browser_list()
     for browser in browsers:
@@ -241,13 +255,13 @@ def get_browser_info(browser_id: str):
 
 def delete_browsers_by_name(name_pattern: str):
     """
-    根据名称删除所有匹配的窗口
+    Delete all browser windows matching the name.
     
     Args:
-        name_pattern: 窗口名称（精确匹配）
+        name_pattern: Window name (exact match)
         
     Returns:
-        删除的窗口数量
+        Number of deleted windows
     """
     browsers = get_browser_list()
     deleted_count = 0
@@ -273,13 +287,13 @@ def delete_browsers_by_name(name_pattern: str):
 
 def open_browser_by_id(browser_id: str):
     """
-    打开指定ID的窗口
+    Open a browser window by ID.
     
     Args:
-        browser_id: 窗口ID
+        browser_id: Browser window ID
         
     Returns:
-        bool: 是否调用成功
+        bool: True if successful
     """
     try:
         res = requests.post(
@@ -298,13 +312,13 @@ def open_browser_by_id(browser_id: str):
 
 def delete_browser_by_id(browser_id: str):
     """
-    删除指定ID的窗口
+    Delete a browser window by ID.
     
     Args:
-        browser_id: 窗口ID
+        browser_id: Browser window ID
         
     Returns:
-        bool: 是否删除成功
+        bool: True if deletion successful
     """
     try:
         res = requests.post(
@@ -323,27 +337,28 @@ def delete_browser_by_id(browser_id: str):
 
 def get_next_window_name(prefix: str):
     """
-    根据前缀生成下一个窗口名称，格式：前缀_序号
+    Generate next window name based on prefix, format: prefix_number
     
     Args:
-        prefix: 窗口名称前缀
+        prefix: Window name prefix
         
     Returns:
-        下一个窗口名称，如 "美国_1"
+        Next window name, e.g. "USA_1"
     """
     browsers = get_browser_list()
     max_num = 0
     
-    # 遍历所有窗口，找到匹配前缀的最大序号
+    # Iterate all windows to find max number with matching prefix
     prefix_pattern = f"{prefix}_"
     for browser in browsers:
         name = browser.get('name', '')
-        if name == prefix: # 精确匹配前缀（视为序号0或1，视情况而定，这里假设如果不带序号算占用）
-             pass # 简单起见，我们只看带下划线的，或者如果只有前缀，我们从1开始
-             
+        if name == prefix:
+            # Exact match to prefix (treated as number 0 or 1)
+            pass
+              
         if name.startswith(prefix_pattern):
             try:
-                # 尝试提取后缀数字
+                # Extract suffix number
                 suffix = name[len(prefix_pattern):]
                 num = int(suffix)
                 if num > max_num:
@@ -355,7 +370,13 @@ def get_next_window_name(prefix: str):
 
 
 def open_browser_url(browser_id: str, target_url: str):
-    """打开浏览器窗口并导航到指定URL"""
+    """
+    Open browser window and navigate to specified URL.
+    
+    Args:
+        browser_id: Browser window ID
+        target_url: URL to navigate to
+    """
     try:
         res = requests.post(
             f"{url}/browser/open",
@@ -383,30 +404,32 @@ def open_browser_url(browser_id: str, target_url: str):
         pass
 
 
-def create_browser_window(account: dict, reference_browser_id: str = None, proxy: dict = None, platform: str = None, extra_url: str = None, name_prefix: str = None, template_config: dict = None):
+def create_browser_window(account: dict, reference_browser_id: str = None, proxy: dict = None, 
+                          platform: str = None, extra_url: str = None, name_prefix: str = None, 
+                          template_config: dict = None):
     """
-    创建新的浏览器窗口
+    Create a new browser window/profile.
     
     Args:
-        account: 账户信息
-        reference_browser_id: 参考窗口ID
-        proxy: 代理信息
-        platform: 平台URL
-        extra_url: 额外URL
-        name_prefix: 窗口名称前缀
-        template_config: 直接提供的模板配置字典 (优先级高于 reference_browser_id)
+        account: Account info dictionary
+        reference_browser_id: Reference/template browser ID
+        proxy: Proxy configuration
+        platform: Platform URL
+        extra_url: Additional URL
+        name_prefix: Window name prefix
+        template_config: Direct template config dict (takes priority over reference_browser_id)
         
     Returns:
-        (browser_id, error_message)
+        tuple: (browser_id, error_message)
     """
     if template_config:
         reference_config = template_config
     elif reference_browser_id:
         reference_config = get_browser_info(reference_browser_id)
         if not reference_config:
-            return None, f"找不到参考窗口: {reference_browser_id}"
+            return None, f"Reference window not found: {reference_browser_id}"
     else:
-        return None, "未指定参考窗口ID或模板配置"
+        return None, "No reference browser ID or template config specified"
     
     json_data = {}
     exclude_fields = {'id', 'name', 'remark', 'userName', 'password', 'faSecretKey', 'createTime', 'updateTime'}
@@ -415,11 +438,11 @@ def create_browser_window(account: dict, reference_browser_id: str = None, proxy
         if key not in exclude_fields:
             json_data[key] = value
     
-    # 确定窗口名称
+    # Determine window name
     if name_prefix:
         final_prefix = name_prefix
     else:
-        # 如果未指定前缀，尝试从参考窗口名称推断
+        # If no prefix specified, try to infer from reference window name
         ref_name = reference_config.get('name', '')
         if '_' in ref_name:
             final_prefix = '_'.join(ref_name.split('_')[:-1])
@@ -470,11 +493,11 @@ def create_browser_window(account: dict, reference_browser_id: str = None, proxy
         json_data['proxyPassword'] = ''
     
     
-    # 检查是否已存在该账号的窗口
+    # Check if window for this account already exists
     all_browsers = get_browser_list()
     for b in all_browsers:
         if b.get('userName') == account['email']:
-            return None, f"该账号已有对应窗口: {b.get('name')} (ID: {b.get('id')})"
+            return None, f"Window for this account already exists: {b.get('name')} (ID: {b.get('id')})"
 
     try:
         res = requests.post(
@@ -487,7 +510,7 @@ def create_browser_window(account: dict, reference_browser_id: str = None, proxy
         if res.get('code') == 0 or res.get('success') == True:
             browser_id = res.get('data', {}).get('id')
             if not browser_id:
-                return None, "API返回成功但未获取到ID"
+                return None, "API returned success but no ID received"
             
             created_config = get_browser_info(browser_id)
             need_update = False
@@ -553,15 +576,15 @@ def create_browser_window(account: dict, reference_browser_id: str = None, proxy
             
             return browser_id, None
         
-        error_msg = res.get('msg', '未知API错误')
-        return None, f"创建请求被拒绝: {error_msg}"
+        error_msg = res.get('msg', 'Unknown API error')
+        return None, f"Create request rejected: {error_msg}"
         
     except Exception as e:
-        return None, f"请求异常: {str(e)}"
+        return None, f"Request exception: {str(e)}"
 
 
 def print_browser_info(browser_id: str):
-    """打印窗口的完整配置信息"""
+    """Print complete config info for a browser window."""
     config = get_browser_info(browser_id)
     if config:
         print(json.dumps(config, indent=2, ensure_ascii=False))
@@ -597,13 +620,12 @@ def main():
         if browser_id:
             success_count += 1
         else:
-            print(f"窗口创建失败: {error}")
+            print(f"Window creation failed: {error}")
         if i < len(accounts):
             time.sleep(1)
     
-    print(f"完成: {success_count}/{len(accounts)}")
+    print(f"Complete: {success_count}/{len(accounts)}")
 
 
 if __name__ == "__main__":
     main()
-

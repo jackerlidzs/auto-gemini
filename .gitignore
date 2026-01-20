@@ -1,66 +1,53 @@
-# Exclude configuration files with sensitive data
-accounts.txt
-proxies.txt
-sheerIDlink.txt
-无资格号.txt
-已绑卡号.txt
-已验证未绑卡.txt
-有资格待验证号.txt
-超时或其他错误.txt
-sheerID_verified_failed.txt
-2fa_codes.txt
-sheerid_tool/
+# Git ignore for Auto BitBrowser
+# ================================
 
-# Exclude database files
-*.db
-*.db-journal
-*.sqlite
-*.sqlite3
-
-# Exclude log files
-*.log
-
-# Exclude debug/test files
-debug_*.html
-step*.png
-error*.png
-
-# Exclude all images by default
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.bmp
-*.svg
-*.ico
-
-# Exception: Keep specific community images
-!Telegram.jpg
-!Telegram.png
-!QQ.jpg
-!zanshang.jpg
-
-# Exclude build artifacts and temp files
-build/
-dist/
-*.spec
+# Python
 __pycache__/
-*.pyc
-temp_config.json
-temp_icon.png
-
-# Exclude IDE settings
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# Exclude virtual env
+*.py[cod]
+*$py.class
+*.so
 venv/
 env/
+.venv/
+ENV/
 
-# Exclude OS files
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sensitive files (DO NOT COMMIT!)
+accounts.txt
+proxies.txt
+cards.txt
+*.db
+accounts.db
+
+# Output files
+sheerIDlink.txt
+verified_no_card.txt
+subscribed.txt
+ineligible.txt
+error.txt
+eligible_pending.txt
+2fa_codes.txt
+
+# Logs
+*.log
+logs/
+
+# OS files
 .DS_Store
 Thumbs.db
-desktop.ini
+
+# Temp files
+*.tmp
+*.bak
+ssh_config_template.txt
+sync_to_vps.bat
+
+# Test files
+test_*.py
+delete_old_browsers.py
+open_browser.py

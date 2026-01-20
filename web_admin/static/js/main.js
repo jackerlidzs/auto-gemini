@@ -2,10 +2,10 @@ let allAccounts = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     fetchAccounts();
-    
+
     document.getElementById('searchInput').addEventListener('input', renderTable);
     document.querySelectorAll('.filter-cb').forEach(cb => cb.addEventListener('change', renderTable));
-    
+
     document.getElementById('btnExport').addEventListener('click', showExportModal);
     document.getElementById('btnConfirmExport').addEventListener('click', confirmExport);
     document.getElementById('btnCancelExport').addEventListener('click', hideExportModal);
@@ -19,34 +19,34 @@ function fetchAccounts() {
             renderTable();
         })
         .catch(err => {
-            console.error('加载数据失败:', err);
-            document.getElementById('countDisplay').innerText = '加载失败，请检查后台服务';
+            console.error('Failed to load data:', err);
+            document.getElementById('countDisplay').innerText = 'Load failed, please check backend service';
         });
 }
 
 function renderTable() {
     const tbody = document.getElementById('accountTableBody');
     tbody.innerHTML = '';
-    
+
     const search = document.getElementById('searchInput').value.toLowerCase();
     const activeStatues = Array.from(document.querySelectorAll('.filter-cb:checked')).map(cb => cb.value);
-    
+
     const filtered = allAccounts.filter(acc => {
         if (activeStatues.length > 0 && !activeStatues.includes(acc.status)) return false;
-        
+
         const term = search;
         if (!term) return true;
-        
-        return (acc.email || '').toLowerCase().includes(term) || 
-               (acc.status || '').toLowerCase().includes(term);
+
+        return (acc.email || '').toLowerCase().includes(term) ||
+            (acc.status || '').toLowerCase().includes(term);
     });
-    
-    document.getElementById('countDisplay').innerText = `显示 ${filtered.length} / ${allAccounts.length} 个账号`;
+
+    document.getElementById('countDisplay').innerText = `Showing ${filtered.length} / ${allAccounts.length} accounts`;
 
     filtered.forEach(acc => {
         const tr = document.createElement('tr');
-        
-        // 创建可点击复制的单元格
+
+        // Create clickable copyable cells
         tr.innerHTML = `
             <td class="copyable" data-value="${acc.email || ''}">${acc.email || '-'}</td>
             <td class="copyable" data-value="${acc.password || ''}">${acc.password || '-'}</td>
@@ -57,10 +57,10 @@ function renderTable() {
         `;
         tbody.appendChild(tr);
     });
-    
-    // 为所有可复制单元格添加点击事件
+
+    // Add click event to all copyable cells
     document.querySelectorAll('.copyable').forEach(cell => {
-        cell.addEventListener('click', function() {
+        cell.addEventListener('click', function () {
             const value = this.getAttribute('data-value');
             if (value && value !== '-' && value !== '') {
                 copyToClipboard(value);
@@ -68,16 +68,16 @@ function renderTable() {
             }
         });
     });
-    
+
     window.currentFiltered = filtered; // For export
 }
 
 function copyToClipboard(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
-            console.log('已复制到剪贴板');
+            console.log('Copied to clipboard');
         }).catch(err => {
-            console.error('复制失败:', err);
+            console.error('Copy failed:', err);
             fallbackCopy(text);
         });
     } else {
@@ -94,9 +94,9 @@ function fallbackCopy(text) {
     textarea.select();
     try {
         document.execCommand('copy');
-        console.log('已复制（兼容模式）');
+        console.log('Copied (fallback mode)');
     } catch (err) {
-        console.error('复制失败:', err);
+        console.error('Copy failed:', err);
     }
     document.body.removeChild(textarea);
 }
@@ -112,11 +112,11 @@ function showCopyFeedback(element) {
 
 function mapStatus(s) {
     const map = {
-        'link_ready': '有资格待验证已提取链接',
-        'verified': '已验证未绑卡',
-        'subscribed': '已绑卡订阅',
-        'ineligible': '无资格',
-        'error': '错误/超时'
+        'link_ready': 'Eligible (Link Ready)',
+        'verified': 'Verified (No Card)',
+        'subscribed': 'Subscribed',
+        'ineligible': 'Ineligible',
+        'error': 'Error/Timeout'
     };
     return map[s] || s;
 }
@@ -131,31 +131,31 @@ function hideExportModal() {
 
 function confirmExport() {
     if (!window.currentFiltered || window.currentFiltered.length === 0) {
-        alert("没有可导出的账号！");
+        alert("No accounts to export!");
         return;
     }
-    
+
     const fields = Array.from(document.querySelectorAll('.export-field:checked')).map(cb => cb.value);
     const emails = window.currentFiltered.map(acc => acc.email);
-    
+
     fetch('/api/export', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({emails, fields})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails, fields })
     })
-    .then(res => res.blob())
-    .then(blob => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `exported_accounts_${new Date().getTime()}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        hideExportModal();
-    })
-    .catch(err => {
-        console.error('导出失败:', err);
-        alert('导出失败，请查看控制台日志');
-    });
+        .then(res => res.blob())
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `exported_accounts_${new Date().getTime()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            hideExportModal();
+        })
+        .catch(err => {
+            console.error('Export failed:', err);
+            alert('Export failed, please check console log');
+        });
 }

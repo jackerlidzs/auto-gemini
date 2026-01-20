@@ -1,0 +1,8 @@
+# Proxy Configuration
+# Format: protocol://username:password@host:port
+# 
+# Supported protocols: socks5, http, https
+#
+# Examples:
+# socks5://user:pass@proxy.example.com:1080
+# http://user:pass@residential.proxy.io:7777
