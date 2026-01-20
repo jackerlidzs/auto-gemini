@@ -1,18 +1,25 @@
 #!/bin/bash
 # ============================================
-# Auto BitBrowser - Complete Setup for Debian 12
+# Auto Gemini - Complete Setup for Debian 12
 # ============================================
 # OS: Debian GNU/Linux 12 (Bookworm)
 # Arch: x86_64
 # ============================================
-# Run: chmod +x setup_debian.sh && sudo ./setup_debian.sh
+# Run from project directory:
+#   cd /opt/auto-gemini
+#   sudo bash setup_debian.sh
 # ============================================
 
 set -e  # Exit on error
 
+# Get the directory where the script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 echo "========================================"
-echo "Auto BitBrowser - Debian 12 Setup"
+echo "Auto Gemini - Debian 12 Setup"
 echo "========================================"
+echo "Project directory: $SCRIPT_DIR"
 echo ""
 
 # 1. Update system
@@ -62,19 +69,15 @@ apt install -y \
     libxkbcommon-x11-0 \
     libdbus-1-3
 
-# 5. Create project directory and virtual environment
+# 5. Create virtual environment in project directory
 echo "[5/7] Setting up Python virtual environment..."
-cd /opt
-mkdir -p auto_bitbrowser
-cd auto_bitbrowser
-
 python3 -m venv venv
 source venv/bin/activate
 
 # 6. Install Python packages
 echo "[6/7] Installing Python packages..."
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r "$SCRIPT_DIR/requirements.txt"
 
 # 7. Install Playwright browsers
 echo "[7/7] Installing Playwright Chromium..."
@@ -89,11 +92,13 @@ echo ""
 echo "Python version: $(python3 --version)"
 echo "Pip version: $(pip --version)"
 echo ""
-echo "To run the tool:"
-echo "  cd /opt/auto_bitbrowser"
-echo "  source venv/bin/activate"
-echo "  xvfb-run python auto_batch.py"
+echo "Next steps:"
+echo "  1. cp accounts.example.txt accounts.txt"
+echo "  2. nano accounts.txt  # Add your accounts"
+echo "  3. cp proxies.example.txt proxies.txt (optional)"
 echo ""
-echo "Or for headless (no GUI) mode:"
+echo "To run the tool:"
+echo "  cd $SCRIPT_DIR"
+echo "  source venv/bin/activate"
 echo "  python auto_batch.py"
 echo ""
