@@ -447,6 +447,71 @@ def process_browser(browser_id, log_callback=None):
         print(f"Closing browser {browser_id}...")
         closeBrowser(browser_id)
 
+
+async def process_browser_with_ws(ws_endpoint: str, account_info: dict, log_callback=None) -> dict:
+    """
+    Process browser using WebSocket endpoint directly.
+    Used for Dolphin Anty and other browsers that provide WS endpoint.
+    
+    Args:
+        ws_endpoint: WebSocket endpoint URL
+        account_info: Dict with email, password, backup, secret
+        log_callback: Optional callback for logging
+        
+    Returns:
+        Dict with status, message, and optional link
+    """
+    from playwright.async_api import async_playwright
+    
+    result = {
+        'status': 'error',
+        'message': '',
+        'link': None
+    }
+    
+    async with async_playwright() as playwright:
+        try:
+            chromium = playwright.chromium
+            browser = await chromium.connect_over_cdp(ws_endpoint)
+            default_context = browser.contexts[0]
+            page = default_context.pages[0] if default_context.pages else await default_context.new_page()
+            
+            # Run the same automation logic
+            automation_result = await _automate_login_and_extract(
+                playwright=playwright,
+                browser_id="dolphin",  # placeholder ID
+                account_info=account_info,
+                ws_endpoint=ws_endpoint,
+                log_callback=log_callback
+            )
+            
+            if isinstance(automation_result, tuple):
+                success, msg = automation_result
+                if success:
+                    # Check if msg contains a link
+                    if 'sheerid' in msg.lower() or 'verify' in msg.lower():
+                        result['status'] = 'eligible'
+                        result['link'] = msg
+                    else:
+                        result['status'] = 'success'
+                    result['message'] = msg
+                else:
+                    if 'ineligible' in msg.lower() or 'not available' in msg.lower():
+                        result['status'] = 'ineligible'
+                    result['message'] = msg
+            else:
+                result['status'] = 'success' if automation_result else 'error'
+                result['message'] = 'Automation completed' if automation_result else 'Automation failed'
+                
+        except Exception as e:
+            result['status'] = 'error'
+            result['message'] = str(e)
+            import traceback
+            traceback.print_exc()
+    
+    return result
+
+
 if __name__ == "__main__":
     # Test with specific ID
     target_id = "62b1596a5e064629a7126b11feed7c89"
